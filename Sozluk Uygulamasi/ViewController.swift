@@ -17,25 +17,91 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        let k1 = Kelimeler(kelime_id: 1, ingilizce: "Table", turkce: "Masa")
-        let k2 = Kelimeler(kelime_id: 2, ingilizce: "Door", turkce: "Kapı")
-        let k3 = Kelimeler(kelime_id: 3, ingilizce: "Window", turkce: "Pencere")
-
-        kelimeListesi.append(k1)
-        kelimeListesi.append(k2)
-        kelimeListesi.append(k3)
-
         kelimeTableView.delegate = self
         kelimeTableView.dataSource = self
 
         searchBar.delegate = self
-        
+       
+        tumKelimelerAl()
+
     }
 
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+       let indeks = sender as? Int
+        let gidilecekVC = segue.destination as! KelimeDetayViewController
+        gidilecekVC.kelime = kelimeListesi[indeks!]
         
     }
 
+    
+    func tumKelimelerAl() {
+        guard let url = URL(string: "http://kasimadalan.pe.hu/sozluk/tum_kelimeler.php") else { return }
+        
+        URLSession.shared.dataTask(with: url) { data, response, error in
+            guard error == nil else {
+                print(error!.localizedDescription)
+                return
+            }
+            
+            guard let data = data else {
+                print("Data is nil")
+                return
+            }
+            
+            do {
+                let cevap = try JSONDecoder().decode(SozlukCevap.self, from: data)
+                if let gelenKelimeListesi = cevap.kelimeler {
+                    self.kelimeListesi = gelenKelimeListesi
+                }
+                DispatchQueue.main.async {
+                    self.kelimeTableView.reloadData()
+                }
+            } catch {
+                print(error.localizedDescription)
+            }
+        }.resume()
+    }
+
+    
+    
+    func aramaYap(aramaKelimesi:String) {
+        
+
+        var request = URLRequest(url: URL(string: "http://kasimadalan.pe.hu/sozluk/kelime_ara.php")!)
+        
+        request.httpMethod = "POST"
+        
+        let postString = "ingilizce=\(aramaKelimesi)"
+        
+        request.httpBody = postString.data(using: .utf8)
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            guard error == nil else {
+                print(error!.localizedDescription)
+                return
+            }
+            
+            guard let data = data else {
+                print("Data is nil")
+                return
+            }
+            
+            do {
+                let cevap = try JSONDecoder().decode(SozlukCevap.self, from: data)
+                if let gelenKelimeListesi = cevap.kelimeler {
+                    self.kelimeListesi = gelenKelimeListesi
+                }
+                DispatchQueue.main.async {
+                    self.kelimeTableView.reloadData()
+                }
+            } catch {
+                print(error.localizedDescription)
+            }
+        }.resume()
+    }
+    
+    
+    
 }
 
 extension ViewController: UITableViewDelegate,UITableViewDataSource {
@@ -71,6 +137,6 @@ extension ViewController: UITableViewDelegate,UITableViewDataSource {
 
 extension ViewController: UISearchBarDelegate {
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        print(searchText)
+        aramaYap(aramaKelimesi:searchText)
     }
 }
